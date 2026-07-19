@@ -87,7 +87,9 @@ export async function sendOTP(
           mockOTPCode = data.code;
           mockPhone = phone;
           if (typeof window !== "undefined") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (window as any).__latestMockOTP = data.code;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (window as any).__latestMockPhone = phone;
             alert(`[Dev Mode] Simulated SMS sent to ${phone}. Enter code: ${data.code}`);
           }
@@ -101,7 +103,9 @@ export async function sendOTP(
       mockOTPCode = code;
       mockPhone = phone;
       if (typeof window !== "undefined") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).__latestMockOTP = code;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).__latestMockPhone = phone;
         alert(`[Dev Mode] Simulated SMS sent to ${phone}. Enter code: ${code}`);
       }
@@ -133,7 +137,9 @@ export async function sendOTP(
         mockOTPCode = data.code;
         mockPhone = phone;
         if (typeof window !== "undefined") {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__latestMockOTP = data.code;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (window as any).__latestMockPhone = phone;
           alert(`[Fallback Mode] SMS delivery failed via standard route. Using alternative verification. Enter code: ${data.code}`);
         }

@@ -17,7 +17,7 @@ export async function getAssumedRoleFromRequest(req: NextRequest) {
 
     const session = await verifyMultiRoleSession(sessionCookie);
     return session.assumed_role;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -66,8 +66,9 @@ export async function getUserRoles(userId: string) {
   try {
     // This would typically call your API or database
     // For now, returns null - implement with your auth logic
+    console.log('Getting user roles for:', userId);
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

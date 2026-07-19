@@ -9,7 +9,7 @@ interface DatabaseRow {
   password_hash: string;
   first_name: string;
   role: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**

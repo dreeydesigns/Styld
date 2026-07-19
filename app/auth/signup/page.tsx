@@ -29,6 +29,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isFallbackMode, setIsFallbackMode] = useState(false);
   
   // Timer and Form fields for Step 3
   const [resendCountdown, setResendCountdown] = useState(0);
@@ -42,11 +43,77 @@ export default function SignupPage() {
     return !apiKey || apiKey === "AIzaSyA1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q" || projId === "mock-salon" || projId === "";
   };
 
+  // State Persistence: Load progress on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedStep = localStorage.getItem('styld_signup_step');
+        const savedPhone = localStorage.getItem('styld_signup_phone');
+        const savedFirstName = localStorage.getItem('styld_signup_firstName');
+        const savedFallbackMode = localStorage.getItem('styld_signup_fallbackMode');
+        
+        if (savedStep === '1' || savedStep === '2') {
+          setStep(Number(savedStep) as 1 | 2);
+          console.log(`[Signup State] Restored step ${savedStep} from localStorage.`);
+        }
+        if (savedPhone) {
+          setPhone(savedPhone);
+          console.log(`[Signup State] Restored phone ${savedPhone} from localStorage.`);
+        }
+        if (savedFirstName) {
+          setFirstName(savedFirstName);
+          console.log(`[Signup State] Restored firstName ${savedFirstName} from localStorage.`);
+        }
+        if (savedFallbackMode === 'true') {
+          setIsFallbackMode(true);
+          console.log(`[Signup State] Restored fallbackMode true from localStorage.`);
+        }
+      } catch (err) {
+        console.error('[Signup State] Failed to load saved progress:', err);
+      }
+    }
+  }, []);
+
+  // State Persistence: Save progress on changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        if (step === 1 || step === 2) {
+          localStorage.setItem('styld_signup_step', String(step));
+          localStorage.setItem('styld_signup_phone', phone);
+          localStorage.setItem('styld_signup_firstName', firstName);
+          localStorage.setItem('styld_signup_fallbackMode', String(isFallbackMode));
+        } else {
+          // Clear when fully verified and heading to step 3 (profile completion) or success
+          localStorage.removeItem('styld_signup_step');
+          localStorage.removeItem('styld_signup_phone');
+          localStorage.removeItem('styld_signup_firstName');
+          localStorage.removeItem('styld_signup_fallbackMode');
+        }
+      } catch (err) {
+        console.error('[Signup State] Failed to save progress:', err);
+      }
+    }
+  }, [step, phone, firstName, isFallbackMode]);
+
   useEffect(() => {
     // 2. Initialize Firebase's built-in Recaptcha without the manual Enterprise sitekey
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      'size': 'invisible',
-    });
+    try {
+      if (typeof window !== "undefined" && document.getElementById('recaptcha-container')) {
+        console.log("[Firebase Auth] Initializing invisible ReCaptchaVerifier...");
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible',
+          'callback': (response: any) => {
+            console.log("[Firebase Auth] ReCaptcha verified successfully:", response);
+          },
+          'expired-callback': () => {
+            console.warn("[Firebase Auth] ReCaptcha expired. Please request code again.");
+          }
+        });
+      }
+    } catch (err) {
+      console.error("[Firebase Auth] ReCaptchaVerifier initialization failed:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -99,6 +166,7 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+    setIsFallbackMode(false);
     try {
       if (isMockFirebaseConfig()) {
         console.log(`[Dev Mode] Requesting simulated OTP via database...`);
@@ -138,11 +206,37 @@ export default function SignupPage() {
         return;
       }
 
-      const confirmation = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-      window.confirmationResult = confirmation;
-      setStep(2);
-      setResendCountdown(60);
+      // Real Firebase SMS attempt
+      console.log(`[Firebase Auth] Requesting OTP SMS for ${phone}...`);
+      try {
+        const confirmation = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
+        window.confirmationResult = confirmation;
+        setStep(2);
+        setResendCountdown(60);
+      } catch (firebaseErr: any) {
+        console.error("[Firebase Auth] Direct SMS request failed. Investigating...", firebaseErr);
+        console.error(`Error Code: ${firebaseErr.code || 'N/A'}, Message: ${firebaseErr.message}`);
+        
+        // Dynamic failover to database-backed AfricasTalking fallback
+        console.log("[Firebase Auth] Initiating fallback SMS via AfricasTalking API / Database OTP...");
+        const res = await fetch('/api/auth/client/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          console.log(`[Fallback Mode] Backup SMS triggered successfully via AfricasTalking.`);
+          setIsFallbackMode(true);
+          setStep(2);
+          setResendCountdown(60);
+          setSuccessMessage("Firebase SMS failed. Verification code has been sent successfully via backup carrier.");
+        } else {
+          throw new Error(data.message || "Failed to trigger fallback verification SMS.");
+        }
+      }
     } catch (err: any) {
+      console.error("[Auth Flow] Signup OTP request failed completely:", err);
       setError('Error: ' + err.message);
     } finally {
       setLoading(false);
@@ -154,49 +248,51 @@ export default function SignupPage() {
     setError(null);
     setSuccessMessage(null);
     try {
-      if (isMockFirebaseConfig()) {
-        console.log(`[Dev Mode] Resending simulated SMS via database for: ${phone}`);
-        let generatedCode = "123456";
-        try {
-          const res = await fetch('/api/auth/client/send-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone }),
-          });
-          const data = await res.json();
-          if (data.ok) {
-            generatedCode = data.code;
-            if (typeof window !== "undefined") {
-              (window as any).__latestMockOTP = generatedCode;
-              (window as any).__latestMockPhone = phone;
-              setSignUpLatestOTP(generatedCode);
-            }
+      if (isMockFirebaseConfig() || isFallbackMode) {
+        console.log(`[Dev/Fallback Mode] Resending verification code...`);
+        const res = await fetch('/api/auth/client/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (isMockFirebaseConfig()) {
+            setSignUpLatestOTP(data.code);
+            alert(`[Dev Mode] Simulated SMS resent. Enter code: ${data.code}`);
           }
-        } catch (e) {
-          console.error("Failed to generate database OTP on resend, using 123456.", e);
+          setSuccessMessage('A new verification code has been sent.');
+          setResendCountdown(60);
+        } else {
+          throw new Error(data.message || "Failed to resend code.");
         }
-
-        if (typeof window !== "undefined") {
-          alert(`[Dev Mode] Simulated SMS resent to ${phone}. Enter code: ${generatedCode}`);
-        }
-        window.confirmationResult = {
-          confirm: async (code: string) => {
-            if (code === generatedCode || code === "123456") {
-              return { user: { phoneNumber: phone } } as any;
-            }
-            throw new Error("Invalid mock OTP code.");
-          }
-        } as any;
-        setSuccessMessage('A new OTP has been sent.');
-        setResendCountdown(60);
         return;
       }
 
-      const confirmation = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-      window.confirmationResult = confirmation;
-      setSuccessMessage('A new OTP has been sent.');
-      setResendCountdown(60);
+      console.log(`[Firebase Auth] Resending SMS code for ${phone}...`);
+      try {
+        const confirmation = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
+        window.confirmationResult = confirmation;
+        setSuccessMessage('A new OTP has been sent.');
+        setResendCountdown(60);
+      } catch (firebaseErr: any) {
+        console.error("[Firebase Auth] Resend failed. Falling back to alternative verification...", firebaseErr);
+        const res = await fetch('/api/auth/client/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setIsFallbackMode(true);
+          setSuccessMessage('A backup verification code has been sent.');
+          setResendCountdown(60);
+        } else {
+          throw new Error(data.message || "Failed to resend fallback OTP.");
+        }
+      }
     } catch (err: any) {
+      console.error("[Auth Flow] Resend failed:", err);
       setError('Error resending OTP: ' + err.message);
     } finally {
       setLoading(false);
@@ -209,10 +305,27 @@ export default function SignupPage() {
     setError(null);
     setSuccessMessage(null);
     try {
-      await window.confirmationResult.confirm(otpCode);
-      setStep(3);
+      if (isMockFirebaseConfig() || isFallbackMode) {
+        console.log(`[Auth Flow] Verifying OTP ${otpCode} for ${phone} in fallback/dev mode...`);
+        const res = await fetch('/api/auth/client/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, code: otpCode }),
+        });
+        const data = await res.json();
+        if (data.ok && data.verified) {
+          console.log("[Auth Flow] Fallback OTP verification succeeded.");
+          setStep(3);
+        } else {
+          throw new Error(data.message || "Invalid or expired verification code.");
+        }
+      } else {
+        await window.confirmationResult.confirm(otpCode);
+        setStep(3);
+      }
     } catch (err: any) {
-      setError('Invalid code.');
+      console.error("[Auth Flow] Verification failed:", err);
+      setError(err.message || 'Invalid code.');
     } finally {
       setLoading(false);
     }
@@ -354,6 +467,21 @@ export default function SignupPage() {
             >
               Change number
             </button>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4 mt-4 text-center">
+            <p className="text-xs text-gray-500 mb-2">Didn't receive the SMS?</p>
+            <a 
+              href={`https://wa.me/254743817931?text=${encodeURIComponent(`Hi Styld Support, I am having trouble receiving the SMS verification code on my phone number ${phone}. Please help me complete my signup.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+            >
+              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.963C16.588 1.981 14.117.954 11.487.954c-5.43 0-9.855 4.37-9.859 9.801-.002 1.97.518 3.89 1.51 5.582l-.99 3.613 3.734-.969c1.587.864 3.194 1.306 4.765 1.306z" />
+              </svg>
+              Having trouble? Chat with us on WhatsApp
+            </a>
           </div>
         </form>
       ) : (

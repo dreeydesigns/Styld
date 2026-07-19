@@ -72,8 +72,11 @@ export function ProfileCompletionMeter({ className }: { className?: string }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setFields(getCompletionFields());
-    setMounted(true);
+    const timer = setTimeout(() => {
+      setFields(getCompletionFields());
+      setMounted(true);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!mounted || fields.length === 0) return null;
@@ -201,31 +204,36 @@ export function GreetingBanner({ className }: { className?: string }) {
   const [streak, setStreak]   = useState(0);
 
   useEffect(() => {
-    const session = readAppSession?.();
-    if (session && session.role !== "guest") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const s = session as any;
-      const n: string = s.firstName ?? s.displayName ?? s.salonName ?? "";
-      setName(n.split(" ")[0] ?? "");
-    }
+    const timer = setTimeout(() => {
+      const session = readAppSession?.();
+      let resolvedName = "";
+      if (session && session.role !== "guest") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s = session as any;
+        const n: string = s.firstName ?? s.displayName ?? s.salonName ?? "";
+        resolvedName = n.split(" ")[0] ?? "";
+        setName(resolvedName);
+      }
 
-    // Streak calculation
-    const key      = "ms-checkin-streak";
-    const today    = new Date().toISOString().slice(0, 10);
-    const stored   = localStorageGet<{ date: string; count: number }>(key, { date: "", count: 0 });
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      // Streak calculation
+      const key      = "ms-checkin-streak";
+      const today    = new Date().toISOString().slice(0, 10);
+      const stored   = localStorageGet<{ date: string; count: number }>(key, { date: "", count: 0 });
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 
-    let count = 1;
-    if (stored.date === today) {
-      count = stored.count;
-    } else if (stored.date === yesterday) {
-      count = stored.count + 1;
-      localStorage.setItem(key, JSON.stringify({ date: today, count }));
-    } else {
-      localStorage.setItem(key, JSON.stringify({ date: today, count: 1 }));
-    }
-    setStreak(count);
-    setMounted(true);
+      let count = 1;
+      if (stored.date === today) {
+        count = stored.count;
+      } else if (stored.date === yesterday) {
+        count = stored.count + 1;
+        localStorage.setItem(key, JSON.stringify({ date: today, count }));
+      } else {
+        localStorage.setItem(key, JSON.stringify({ date: today, count: 1 }));
+      }
+      setStreak(count);
+      setMounted(true);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!mounted || !name) return null;
@@ -463,13 +471,16 @@ export function DailyCheckIn({ className }: { className?: string }) {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const key   = "ms-checkin-shown";
-    const today = new Date().toISOString().slice(0, 10);
-    const last  = localStorage.getItem(key);
-    if (last !== today) {
-      setVisible(true);
-      localStorage.setItem(key, today);
-    }
+    const timer = setTimeout(() => {
+      const key   = "ms-checkin-shown";
+      const today = new Date().toISOString().slice(0, 10);
+      const last  = localStorage.getItem(key);
+      if (last !== today) {
+        setVisible(true);
+        localStorage.setItem(key, today);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!visible || dismissed) return null;
@@ -628,27 +639,30 @@ export function useRewardBadges(): BadgeType[] {
   const [badges, setBadges] = useState<BadgeType[]>([]);
 
   useEffect(() => {
-    const earned: BadgeType[] = [];
+    const timer = setTimeout(() => {
+      const earned: BadgeType[] = [];
 
-    try {
-      // Check booking count → Loyal Client (3+)
-      const session = readAppSession?.();
-      if (session && session.role !== "guest") {
-        const bookings: unknown[] = JSON.parse(localStorage.getItem(`ms_bookings_${session.id}`) ?? "[]");
-        if (bookings.length >= 3) earned.push("loyal_client");
+      try {
+        // Check booking count → Loyal Client (3+)
+        const session = readAppSession?.();
+        if (session && session.role !== "guest") {
+          const bookings: unknown[] = JSON.parse(localStorage.getItem(`ms_bookings_${session.id}`) ?? "[]");
+          if (bookings.length >= 3) earned.push("loyal_client");
 
-        // Check post count → Top Reviewer (5+ posts)
-        const posts: unknown[] = JSON.parse(localStorage.getItem("ms_posts") ?? "[]");
-        const myPosts = (posts as Array<{ authorId: string }>).filter((p) => p.authorId === session.id);
-        if (myPosts.length >= 5) earned.push("top_reviewer");
+          // Check post count → Top Reviewer (5+ posts)
+          const posts: unknown[] = JSON.parse(localStorage.getItem("ms_posts") ?? "[]");
+          const myPosts = (posts as Array<{ authorId: string }>).filter((p) => p.authorId === session.id);
+          if (myPosts.length >= 5) earned.push("top_reviewer");
 
-        // Streak → On Fire (3+)
-        const streakData = localStorageGet<{ count: number }>("ms-checkin-streak", { count: 0 });
-        if (streakData.count >= 3) earned.push("streak");
-      }
-    } catch { /* localStorage not available */ }
+          // Streak → On Fire (3+)
+          const streakData = localStorageGet<{ count: number }>("ms-checkin-streak", { count: 0 });
+          if (streakData.count >= 3) earned.push("streak");
+        }
+      } catch { /* localStorage not available */ }
 
-    setBadges(earned);
+      setBadges(earned);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   return badges;

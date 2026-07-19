@@ -57,19 +57,19 @@ async function scenario2_multiDeviceTesting() {
   // Device 1: Client
   console.log('Device 1 (Phone): Logging in as CLIENT');
   await loginAsRole('+254743817931', 'Mobisa123', 'client');
-  let session1 = await getCurrentSession();
+  const session1 = await getCurrentSession();
   console.log('  → Assumed role:', session1.session.assumed_role); // 'client'
 
   // Device 2: Salon
   console.log('Device 2 (Tablet): Logging in as SALON');
   await loginAsRole('+254743817931', 'Mobisa123', 'salon');
-  let session2 = await getCurrentSession();
+  const session2 = await getCurrentSession();
   console.log('  → Assumed role:', session2.session.assumed_role); // 'salon'
 
   // Device 3: Professional
   console.log('Device 3 (Laptop): Logging in as PROFESSIONAL');
   await loginAsRole('+254743817931', 'Mobisa123', 'professional');
-  let session3 = await getCurrentSession();
+  const session3 = await getCurrentSession();
   console.log('  → Assumed role:', session3.session.assumed_role); // 'professional'
 
   // Each device maintains its own session!
@@ -167,26 +167,26 @@ async function scenario5_multiRoleIsolation() {
   // As client
   console.log('1. As CLIENT:');
   await loginAsRole('+254743817931', 'Mobisa123', 'client');
-  let clientData = await fetch('/api/users/me').then((r) => r.json());
-  console.log('   Sees: My bookings, services I use, my payments');
+  const clientData = await fetch('/api/users/me').then((r) => r.json());
+  console.log('   Sees: My bookings, services I use, my payments', clientData);
 
   // As professional
   console.log('\n2. As PROFESSIONAL:');
   await loginAsRole('+254743817931', 'Mobisa123', 'professional');
-  let proData = await fetch('/api/users/me').then((r) => r.json());
-  console.log('   Sees: My appointments, my earnings, my portfolio');
+  const proData = await fetch('/api/users/me').then((r) => r.json());
+  console.log('   Sees: My appointments, my earnings, my portfolio', proData);
 
   // As salon
   console.log('\n3. As SALON:');
   await loginAsRole('+254743817931', 'Mobisa123', 'salon');
-  let salonData = await fetch('/api/users/me').then((r) => r.json());
-  console.log('   Sees: Team management, salon analytics, services');
+  const salonData = await fetch('/api/users/me').then((r) => r.json());
+  console.log('   Sees: Team management, salon analytics, services', salonData);
 
   // As admin
   console.log('\n4. As ADMIN:');
   await loginAsRole('+254743817931', 'Mobisa123', 'admin');
-  let adminData = await fetch('/api/users/me').then((r) => r.json());
-  console.log('   Sees: All users, all reports, system stats');
+  const adminData = await fetch('/api/users/me').then((r) => r.json());
+  console.log('   Sees: All users, all reports, system stats', adminData);
 
   console.log('\n✅ Each role has appropriate data visibility!');
 }
@@ -319,7 +319,7 @@ ORDER BY s.last_active_at DESC;
 // TROUBLESHOOTING CHECKLIST
 // ============================================================================
 
-const troubleshootingChecklist = [
+export const troubleshootingChecklist = [
   '✓ Admin account created (check: SELECT * FROM users WHERE phone=...)',
   '✓ User roles assigned (check: SELECT * FROM user_roles WHERE user_id=...)',
   '✓ Admin config exists (check: SELECT * FROM admin_account_config WHERE user_id=...)',
@@ -342,6 +342,7 @@ export const scenarios = {
   scenario3: scenario3_roleSwitching,
   scenario4: scenario4_featureTestingWorkflow,
   scenario5: scenario5_multiRoleIsolation,
+  checklist: troubleshootingChecklist,
 };
 
 // Usage: Run these in browser console or test framework

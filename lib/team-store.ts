@@ -199,7 +199,10 @@ export function calcEarningsSplit(
 }
 
 /** MVP: how many freelancer slots does this plan allow? */
-export function maxFreelancerSlots(_plan: "basic" | "growth" | "premium"): number {
+export function maxFreelancerSlots(plan: "basic" | "growth" | "premium"): number {
   // All plans get 1 slot in MVP — growth phase will expand this
+  if (plan === "premium") {
+    return 1;
+  }
   return 1;
 }

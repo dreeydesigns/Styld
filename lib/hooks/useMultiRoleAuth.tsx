@@ -200,9 +200,9 @@ interface MultiRoleAuthContextType {
   assumedRole: string | null;
   loading: boolean;
   error: string | null;
-  signIn: (phone: string, password: string, assumedRole?: string) => Promise<any>;
-  switchRole: (newRole: string) => Promise<any>;
-  getCurrentSession: () => Promise<any>;
+  signIn: (phone: string, password: string, assumedRole?: string) => Promise<unknown>;
+  switchRole: (newRole: string) => Promise<unknown>;
+  getCurrentSession: () => Promise<unknown>;
 }
 
 export const MultiRoleAuthContext = React.createContext<MultiRoleAuthContextType | null>(null);

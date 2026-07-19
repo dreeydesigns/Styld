@@ -1,5 +1,5 @@
 import { sql } from '@vercel/postgres';
-import { hashPassword, comparePasswords } from '@/lib/auth';
+import { comparePasswords } from '@/lib/auth';
 import crypto from 'crypto';
 
 interface UserWithRoles {
@@ -44,6 +44,7 @@ export async function getUserWithRoles(phone: string): Promise<UserWithRoles | n
 
     if (result.rows.length === 0) return null;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const row = result.rows[0] as any;
     return {
       id: row.id,
@@ -82,6 +83,7 @@ export async function verifyCredentialsMultiRole(phone: string, password: string
 
     if (result.rows.length === 0) return null;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const user = result.rows[0] as any;
     
     if (!user.phone_verified) return null;
@@ -97,6 +99,7 @@ export async function verifyCredentialsMultiRole(phone: string, password: string
       ORDER BY role
     `;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const availableRoles = rolesResult.rows.map((r: any) => r.role);
 
     return {
@@ -174,6 +177,7 @@ export async function createMultiRoleSession(
       SELECT is_universal_admin FROM users WHERE id = ${userId}
     `;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const user = userResult.rows[0] as any;
 
     // Get available roles
@@ -184,6 +188,7 @@ export async function createMultiRoleSession(
       ORDER BY role
     `;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const availableRoles = rolesResult.rows.map((r: any) => r.role);
 
     return {
@@ -223,6 +228,7 @@ export async function verifyMultiRoleSession(token: string) {
       throw new Error('Invalid or expired session');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = result.rows[0] as any;
     
     // Update last_active_at
@@ -308,6 +314,7 @@ export async function switchRoleInSession(
       throw new Error('Session not found');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = sessionResult.rows[0] as any;
 
     // Verify user has access to this role

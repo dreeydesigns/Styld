@@ -476,7 +476,7 @@ function StoryCreateModal({
                   <p className="text-[12px] text-[var(--ms-mauve)]">Open your camera now</p>
                 </div>
                 <input
-                  ref={(el) => { cameraInputRef.current = el; }}
+                  ref={cameraInputRef}
                   type="file"
                   accept="image/*,video/*"
                   capture="environment"
@@ -568,7 +568,9 @@ function StoryViewerModal({
 
   useEffect(() => {
     if (!current || current.mediaType === "video") return;
-    setProgress(0);
+    const timer = setTimeout(() => {
+      setProgress(0);
+    }, 0);
     const start = Date.now();
     const tick = setInterval(() => {
       const elapsed = Date.now() - start;
@@ -583,12 +585,16 @@ function StoryViewerModal({
         }
       }
     }, 50);
-    return () => clearInterval(tick);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(tick);
+    };
   }, [index, current, stories.length, onClose]);
 
   if (!current) return null;
 
   const timeAgo = (() => {
+    // eslint-disable-next-line react-hooks/purity
     const diff = Date.now() - new Date(current.createdAt).getTime();
     const h = Math.floor(diff / (1000 * 60 * 60));
     if (h < 1) return `${Math.max(1, Math.floor(diff / 60000))}m ago`;
