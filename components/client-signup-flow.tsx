@@ -105,23 +105,13 @@ export function ClientSignupFlow() {
     setSendError("");
     persistDetails();
 
-    // Check if permanently OTP verified already on this device!
-    if (typeof window !== "undefined" && (localStorage.getItem("styld_otp_verified_global") === "true" || localStorage.getItem(`styld_otp_verified_${fullPhone.replace(/\D/g, "")}`) === "true")) {
-      console.log("[ClientSignupFlow] Permanent OTP verification detected. Jumping directly to location step.");
-      writeSignupDraft({ otpVerified: true, phone: fullPhone, firstName, password, theme, tribeBadge: themeConfig.tribeBadge });
-      setStep(4);
-      setSubmitting(false);
-      return;
+    console.log("[ClientSignupFlow] Bypassing OTP verification entirely. Jumping directly to location step.");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("styld_otp_verified_global", "true");
+      localStorage.setItem(`styld_otp_verified_${fullPhone.replace(/\D/g, "")}`, "true");
     }
-
-    const result = await sendOTP(fullPhone);
-
-    if (result.ok) {
-      setStep(3);
-    } else {
-      setSendError(result.error ?? "We could not send the code. Check your number and try again.");
-    }
-
+    writeSignupDraft({ otpVerified: true, phone: fullPhone, firstName, password, theme, tribeBadge: themeConfig.tribeBadge });
+    setStep(4);
     setSubmitting(false);
   }
 

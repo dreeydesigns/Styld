@@ -535,13 +535,8 @@ export function SignInRolePicker({
 
   function handleSend(p: string) {
     setPhone(p);
-    const cleanP = p.replace(/\D/g, "");
-    if (typeof window !== "undefined" && (localStorage.getItem("styld_otp_verified_global") === "true" || localStorage.getItem(`styld_otp_verified_${cleanP}`) === "true")) {
-      console.log("[Auth] Bypassing OTP verification and directly signing in.");
-      void handleVerified(p);
-    } else {
-      setStep("otp");
-    }
+    console.log("[Auth] Bypassing OTP verification entirely and directly signing in.");
+    void handleVerified(p);
   }
 
   const [signingIn, setSigningIn] = useState(false);
@@ -723,13 +718,8 @@ export function SignUpRolePicker({
 
   function handleSend(p: string) {
     setPhone(p);
-    const cleanP = p.replace(/\D/g, "");
-    if (typeof window !== "undefined" && (localStorage.getItem("styld_otp_verified_global") === "true" || localStorage.getItem(`styld_otp_verified_${cleanP}`) === "true")) {
-      console.log("[Auth Signup] Bypassing OTP verification and directly proceeding.");
-      handleVerified(p);
-    } else {
-      setStep("otp");
-    }
+    console.log("[Auth Signup] Bypassing OTP verification entirely and directly proceeding.");
+    handleVerified(p);
   }
 
   const [signingUp, setSigningUp] = useState(false);
