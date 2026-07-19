@@ -99,20 +99,35 @@ export default function SignupPage() {
   useEffect(() => {
     // 2. Initialize Firebase's built-in Recaptcha without the manual Enterprise sitekey
     try {
-      if (typeof window !== "undefined" && document.getElementById('recaptcha-container')) {
-        console.log("[Firebase Auth] Initializing invisible ReCaptchaVerifier...");
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'size': 'invisible',
-          'callback': (response: any) => {
-            console.log("[Firebase Auth] ReCaptcha verified successfully:", response);
-          },
-          'expired-callback': () => {
-            console.warn("[Firebase Auth] ReCaptcha expired. Please request code again.");
-          }
+      if (typeof window !== "undefined") {
+        const container = document.getElementById('recaptcha-container');
+        console.log("[Firebase Auth Debug] ReCaptcha container element in DOM:", !!container);
+        console.log("[Firebase Auth Debug] Firebase Config Summary:", {
+          projectId: firebaseConfig.projectId,
+          authDomain: firebaseConfig.authDomain,
         });
+
+        if (container) {
+          console.log("[Firebase Auth] Initializing invisible ReCaptchaVerifier on container...");
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible',
+            'callback': (response: any) => {
+              console.log("[Firebase Auth] ReCaptcha verified successfully on mount. Token exists:", !!response);
+            },
+            'expired-callback': () => {
+              console.warn("[Firebase Auth] ReCaptcha expired callback invoked. Please request code again.");
+            },
+            'error-callback': (err: any) => {
+              console.error("[Firebase Auth] ReCaptcha error-callback invoked:", err);
+            }
+          });
+          console.log("[Firebase Auth Debug] ReCaptchaVerifier instance created:", !!window.recaptchaVerifier);
+        } else {
+          console.warn("[Firebase Auth Debug] ReCaptcha container element ('recaptcha-container') was not found in the DOM on mount.");
+        }
       }
     } catch (err) {
-      console.error("[Firebase Auth] ReCaptchaVerifier initialization failed:", err);
+      console.error("[Firebase Auth Debug] ReCaptchaVerifier initialization failed on mount:", err);
     }
   }, []);
 
@@ -167,6 +182,54 @@ export default function SignupPage() {
     setError(null);
     setSuccessMessage(null);
     setIsFallbackMode(false);
+
+    // 1. Explicit validation for phone length
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (digitsOnly.length < 12) {
+      console.warn(`[Validation Warning] Attempted to submit formatted number with less than 12 digits: ${phone} (digits: ${digitsOnly.length})`);
+      setError("Please enter a complete phone number. Must contain at least 12 digits total after formatting (e.g., +2547XXXXXXXX).");
+      setLoading(false);
+      return;
+    }
+
+    // Check if permanently OTP verified already on this device!
+    if (typeof window !== "undefined" && (localStorage.getItem("styld_otp_verified_global") === "true" || localStorage.getItem(`styld_otp_verified_${digitsOnly}`) === "true")) {
+      console.log("[Auth Signup] Permanent verification detected. Jumping straight to profile details setup.");
+      setStep(3);
+      setLoading(false);
+      return;
+    }
+
+    // AfricasTalking Fallback SMS Trigger Helper
+    const triggerAfricasTalkingFallback = async (reason: string) => {
+      console.warn(`[Firebase Auth Fallback] Triggering backup SMS via AfricasTalking API due to: ${reason}`);
+      try {
+        const res = await fetch('/api/auth/client/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          console.log(`[Fallback Mode] Backup SMS triggered successfully via AfricasTalking.`);
+          setIsFallbackMode(true);
+          setStep(2);
+          setResendCountdown(60);
+          setSuccessMessage(`Firebase SMS failed (${reason}). Verification code has been sent successfully via backup carrier (AfricasTalking).`);
+          
+          if (typeof window !== "undefined" && data.code) {
+            (window as any).__latestMockOTP = data.code;
+            setSignUpLatestOTP(data.code);
+          }
+        } else {
+          throw new Error(data.message || "Failed to trigger fallback verification SMS.");
+        }
+      } catch (fallbackErr: any) {
+        console.error("[Fallback Mode] AfricasTalking backup SMS failover failed:", fallbackErr);
+        throw new Error(`Fallback SMS failed: ${fallbackErr.message}`);
+      }
+    };
+
     try {
       if (isMockFirebaseConfig()) {
         console.log(`[Dev Mode] Requesting simulated OTP via database...`);
@@ -207,36 +270,81 @@ export default function SignupPage() {
       }
 
       // Real Firebase SMS attempt
-      console.log(`[Firebase Auth] Requesting OTP SMS for ${phone}...`);
+      console.log(`[Firebase Auth] Preparing to verify ReCaptcha state before SMS request...`);
+      
+      // Check if recaptchaVerifier is available
+      if (!window.recaptchaVerifier) {
+        console.warn("[Firebase Auth] ReCaptchaVerifier instance missing in window. Re-initializing on-demand...");
+        const container = document.getElementById('recaptcha-container');
+        if (container) {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible',
+            'callback': (response: any) => {
+              console.log("[Firebase Auth] ReCaptcha verified successfully via dynamic init:", response);
+            }
+          });
+        } else {
+          console.error("[Firebase Auth] ReCaptcha container ('recaptcha-container') element not found in DOM.");
+        }
+      }
+
       try {
-        const confirmation = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
+        console.log("[Firebase Auth] Testing ReCaptcha verification rendering...");
+        const testToken = await window.recaptchaVerifier.verify();
+        console.log("[Firebase Auth] ReCaptcha verified successfully before SMS request. Token present:", !!testToken);
+      } catch (recaptchaErr: any) {
+        console.warn("[Firebase Auth] ReCaptcha verification test failed. Proceeding anyway, letting signInWithPhoneNumber handle it or failover.", recaptchaErr);
+      }
+
+      console.log(`[Firebase Auth] Requesting OTP SMS for ${phone} via signInWithPhoneNumber...`);
+
+      // 10-second timeout promise
+      let timeoutId: NodeJS.Timeout | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error('timeout'));
+        }, 10000);
+      });
+
+      try {
+        // Race the signInWithPhoneNumber against the 10-second timeout
+        const confirmation = await Promise.race([
+          signInWithPhoneNumber(auth, phone, window.recaptchaVerifier),
+          timeoutPromise
+        ]);
+
+        if (timeoutId) clearTimeout(timeoutId);
+        console.log("[Firebase Auth] signInWithPhoneNumber completed successfully!");
         window.confirmationResult = confirmation;
         setStep(2);
         setResendCountdown(60);
+        setSuccessMessage("SMS verification code has been sent successfully.");
       } catch (firebaseErr: any) {
-        console.error("[Firebase Auth] Direct SMS request failed. Investigating...", firebaseErr);
-        console.error(`Error Code: ${firebaseErr.code || 'N/A'}, Message: ${firebaseErr.message}`);
-        
-        // Dynamic failover to database-backed AfricasTalking fallback
-        console.log("[Firebase Auth] Initiating fallback SMS via AfricasTalking API / Database OTP...");
-        const res = await fetch('/api/auth/client/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-          console.log(`[Fallback Mode] Backup SMS triggered successfully via AfricasTalking.`);
-          setIsFallbackMode(true);
-          setStep(2);
-          setResendCountdown(60);
-          setSuccessMessage("Firebase SMS failed. Verification code has been sent successfully via backup carrier.");
+        if (timeoutId) clearTimeout(timeoutId);
+
+        // Specific Firebase error logging & bottling identification
+        const errorCode = firebaseErr.code || 'N/A';
+        const errorMessage = firebaseErr.message || 'Unknown error message';
+        console.error(`[Firebase Auth Error Code Detail] Code: ${errorCode}, Message: ${errorMessage}`);
+
+        if (errorCode === 'auth/too-many-requests') {
+          console.error("[Error Monitor] CRITICAL: Rate limit hit. OTP requests are blocked for this phone number/IP.");
+        } else if (errorCode === 'auth/invalid-phone-number') {
+          console.error("[Error Monitor] WARNING: Invalid phone number format submitted to Firebase.");
+        } else if (errorCode === 'auth/captcha-check-failed') {
+          console.error("[Error Monitor] WARNING: ReCaptcha validation failed.");
+        } else if (errorCode === 'auth/quota-exceeded') {
+          console.error("[Error Monitor] CRITICAL: Firebase SMS monthly project quota exceeded.");
+        }
+
+        if (firebaseErr.message === 'timeout') {
+          await triggerAfricasTalkingFallback("Firebase SMS request timed out after 10 seconds");
         } else {
-          throw new Error(data.message || "Failed to trigger fallback verification SMS.");
+          await triggerAfricasTalkingFallback(`Firebase Error: ${errorCode}`);
         }
       }
     } catch (err: any) {
-      console.error("[Auth Flow] Signup OTP request failed completely:", err);
+      console.error("[Auth Flow] Signup OTP request failed completely during handling:", err);
       setError('Error: ' + err.message);
     } finally {
       setLoading(false);
@@ -315,12 +423,20 @@ export default function SignupPage() {
         const data = await res.json();
         if (data.ok && data.verified) {
           console.log("[Auth Flow] Fallback OTP verification succeeded.");
+          if (typeof window !== "undefined") {
+            localStorage.setItem("styld_otp_verified_global", "true");
+            localStorage.setItem(`styld_otp_verified_${phone.replace(/\D/g, "")}`, "true");
+          }
           setStep(3);
         } else {
           throw new Error(data.message || "Invalid or expired verification code.");
         }
       } else {
         await window.confirmationResult.confirm(otpCode);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("styld_otp_verified_global", "true");
+          localStorage.setItem(`styld_otp_verified_${phone.replace(/\D/g, "")}`, "true");
+        }
         setStep(3);
       }
     } catch (err: any) {
@@ -389,10 +505,15 @@ export default function SignupPage() {
               required 
               className="w-full border p-2 text-black rounded focus:outline-none focus:ring-2 focus:ring-black"
             />
+            {phone && phone.replace(/\D/g, '').length < 12 && (
+              <p className="text-amber-600 text-xs mt-1">
+                ⚠️ Phone number is too short. Must contain exactly 12 digits after formatting (entered: {phone.replace(/\D/g, '').length}/12).
+              </p>
+            )}
           </div>
           <button 
             type="submit" 
-            disabled={loading || phone.length < 12} 
+            disabled={loading || phone.replace(/\D/g, '').length < 12} 
             className="w-full bg-black text-white py-2 rounded font-medium disabled:opacity-50 hover:bg-gray-800 transition-colors flex items-center justify-center"
           >
             {loading ? (

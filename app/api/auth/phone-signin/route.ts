@@ -31,13 +31,26 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Look up existing user by phone
-    const { rows } = await sql`
-      SELECT id, first_name, role, phone
-      FROM users
-      WHERE phone = ${phone}
-        AND (deletion_status IS NULL OR deletion_status = 'active')
-      LIMIT 1
-    `;
+    let rows = [];
+    try {
+      const res = await sql`
+        SELECT id, first_name, role, phone
+        FROM users
+        WHERE phone = ${phone}
+          AND (deletion_status IS NULL OR deletion_status = 'active')
+        LIMIT 1
+      `;
+      rows = res.rows;
+    } catch (e) {
+      console.warn("[Database] Query with deletion_status failed, falling back to query without it.", e);
+      const res = await sql`
+        SELECT id, first_name, role, phone
+        FROM users
+        WHERE phone = ${phone}
+        LIMIT 1
+      `;
+      rows = res.rows;
+    }
 
     let userId: string;
     let firstName: string;

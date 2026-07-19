@@ -123,6 +123,10 @@ export function OTPInput({
 
     if (result.ok) {
       setStatus("success");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("styld_otp_verified_global", "true");
+        localStorage.setItem(`styld_otp_verified_${phone.replace(/\D/g, "")}`, "true");
+      }
       onVerified();
       return;
     }

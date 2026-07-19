@@ -105,6 +105,15 @@ export function ClientSignupFlow() {
     setSendError("");
     persistDetails();
 
+    // Check if permanently OTP verified already on this device!
+    if (typeof window !== "undefined" && (localStorage.getItem("styld_otp_verified_global") === "true" || localStorage.getItem(`styld_otp_verified_${fullPhone.replace(/\D/g, "")}`) === "true")) {
+      console.log("[ClientSignupFlow] Permanent OTP verification detected. Jumping directly to location step.");
+      writeSignupDraft({ otpVerified: true, phone: fullPhone, firstName, password, theme, tribeBadge: themeConfig.tribeBadge });
+      setStep(4);
+      setSubmitting(false);
+      return;
+    }
+
     const result = await sendOTP(fullPhone);
 
     if (result.ok) {

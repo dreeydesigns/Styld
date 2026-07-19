@@ -535,16 +535,23 @@ export function SignInRolePicker({
 
   function handleSend(p: string) {
     setPhone(p);
-    setStep("otp");
+    const cleanP = p.replace(/\D/g, "");
+    if (typeof window !== "undefined" && (localStorage.getItem("styld_otp_verified_global") === "true" || localStorage.getItem(`styld_otp_verified_${cleanP}`) === "true")) {
+      console.log("[Auth] Bypassing OTP verification and directly signing in.");
+      void handleVerified(p);
+    } else {
+      setStep("otp");
+    }
   }
 
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState("");
 
-  async function handleVerified() {
+  async function handleVerified(overridePhone?: string) {
     setSigningIn(true);
     setSignInError("");
-    const fullPhone = `+254${phone.replace(/\D/g, "")}`;
+    const targetPhone = overridePhone || phone;
+    const fullPhone = `+254${targetPhone.replace(/\D/g, "")}`;
     try {
       const res = await fetch("/api/auth/phone-signin", {
         method: "POST",
@@ -557,6 +564,13 @@ export function SignInRolePicker({
         setSigningIn(false);
         return;
       }
+
+      // Save permanent verification state on successful verification
+      if (typeof window !== "undefined") {
+        localStorage.setItem("styld_otp_verified_global", "true");
+        localStorage.setItem(`styld_otp_verified_${targetPhone.replace(/\D/g, "")}`, "true");
+      }
+
       const existing = readAppSession();
       if (existing?.role === role.key) {
         writeAppSession({ ...existing, id: data.user.id, phone: data.user.phone });
@@ -709,21 +723,33 @@ export function SignUpRolePicker({
 
   function handleSend(p: string) {
     setPhone(p);
-    setStep("otp");
+    const cleanP = p.replace(/\D/g, "");
+    if (typeof window !== "undefined" && (localStorage.getItem("styld_otp_verified_global") === "true" || localStorage.getItem(`styld_otp_verified_${cleanP}`) === "true")) {
+      console.log("[Auth Signup] Bypassing OTP verification and directly proceeding.");
+      handleVerified(p);
+    } else {
+      setStep("otp");
+    }
   }
 
   const [signingUp, setSigningUp] = useState(false);
   const [signUpError, setSignUpError] = useState("");
   const [displayName, setDisplayName] = useState("");
 
-  function handleVerified() {
+  function handleVerified(overridePhone?: string) {
+    const targetPhone = overridePhone || phone;
+    const cleanP = targetPhone.replace(/\D/g, "");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("styld_otp_verified_global", "true");
+      localStorage.setItem(`styld_otp_verified_${cleanP}`, "true");
+    }
     // Non-client roles: collect a name first, then create the DB user
     if (role.key !== "client") {
       setStep("name");
       return;
     }
     // Client: defer to ClientSignupFlow
-    const fullPhone = `+254${phone.replace(/\D/g, "")}`;
+    const fullPhone = `+254${cleanP}`;
     const existing = readAppSession();
     if (!existing || existing.role !== role.key) {
       writeAppSession(createSessionForRole(role.key as Exclude<AppUserRole, "guest">, fullPhone));
