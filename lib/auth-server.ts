@@ -22,16 +22,45 @@ export async function createSession(
   ipAddress?: string
 ) {
   try {
+    if (!userId) {
+      throw new Error('createSession failed: userId is null or undefined.');
+    }
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto
       .createHash('sha256')
       .update(token)
       .digest('hex');
 
-    await sql`
-      INSERT INTO sessions (user_id, token_hash, device_name, browser, ip_address, is_current)
-      VALUES (${userId}, ${tokenHash}, ${deviceName}, ${browser || null}, ${ipAddress || null}, true)
-    `;
+    try {
+      await sql`
+        INSERT INTO sessions (user_id, token_hash, device_name, browser, ip_address, is_current)
+        VALUES (${userId}, ${tokenHash}, ${deviceName}, ${browser || null}, ${ipAddress || null}, true)
+      `;
+    } catch (insertError: any) {
+      if (insertError.message?.includes('relation "sessions" does not exist')) {
+        console.warn('sessions table does not exist. Creating sessions table...');
+        await sql`
+          CREATE TABLE IF NOT EXISTS sessions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+            token_hash VARCHAR(64) UNIQUE NOT NULL,
+            device_name VARCHAR(255),
+            browser VARCHAR(255),
+            ip_address VARCHAR(45),
+            is_current BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `;
+        // Retry insertion
+        await sql`
+          INSERT INTO sessions (user_id, token_hash, device_name, browser, ip_address, is_current)
+          VALUES (${userId}, ${tokenHash}, ${deviceName}, ${browser || null}, ${ipAddress || null}, true)
+        `;
+      } else {
+        throw insertError;
+      }
+    }
 
     return token;
   } catch (error) {

@@ -283,13 +283,17 @@ function PhoneStep({
     setSending(true);
     setSendError("");
 
-    const result = await sendOTP(`+254${clean}`);
-
-    if (result.ok) {
-      onSend(phone); // notify parent — navigate to OTP step
-      setSending(false);
-    } else {
-      setSendError(result.error ?? "Could not send code. Try again.");
+    try {
+      const result = await sendOTP(`+254${clean}`);
+      if (result.ok) {
+        setSending(false);
+        onSend(phone); // notify parent — navigate to OTP step
+      } else {
+        setSendError(result.error ?? "Could not send code. Try again.");
+        setSending(false);
+      }
+    } catch (err: any) {
+      setSendError(err?.message || "Could not send code. Try again.");
       setSending(false);
     }
   }
@@ -592,7 +596,15 @@ export function SignInRolePicker({
       {signInError && <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-600">{signInError}</div>}
       {signingIn && <div className="rounded-[14px] bg-[var(--ms-soft-bg)] px-4 py-3 text-center text-xs text-[var(--ms-mauve)]">Signing you in…</div>}
 
-      {step === "phone" ? (
+      {signingIn ? (
+        <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center border-2 border-dashed rounded-[24px]" style={{ borderColor: `${role.color}40`, backgroundColor: `${role.color}08` }}>
+          <svg className="animate-spin h-8 w-8" style={{ color: role.color }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-sm font-medium" style={{ color: role.color }}>Signing you in…</p>
+        </div>
+      ) : step === "phone" ? (
         <PhoneStep
           color={role.color}
           onBack={() => setStep("role")}
@@ -796,7 +808,15 @@ export function SignUpRolePicker({
       {signUpError && <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-600">{signUpError}</div>}
       {signingUp && <div className="rounded-[14px] bg-[var(--ms-soft-bg)] px-4 py-3 text-center text-xs text-[var(--ms-mauve)]">Creating your account…</div>}
 
-      {step === "phone" ? (
+      {signingUp ? (
+        <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center border-2 border-dashed rounded-[24px]" style={{ borderColor: `${role.color}40`, backgroundColor: `${role.color}08` }}>
+          <svg className="animate-spin h-8 w-8" style={{ color: role.color }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-sm font-medium" style={{ color: role.color }}>Creating your account…</p>
+        </div>
+      ) : step === "phone" ? (
         <PhoneStep
           color={role.color}
           onBack={() => setStep("role")}

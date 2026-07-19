@@ -97,10 +97,11 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("phone-signin error:", error);
+    const errMsg = error?.message || String(error);
     return NextResponse.json(
-      { ok: false, error: "Sign-in failed. Please try again.", details: String(error) },
+      { ok: false, error: errMsg, details: errMsg },
       { status: 500 },
     );
   }
