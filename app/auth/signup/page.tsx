@@ -2,46 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, signInWithPhoneNumber, RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
-
-// 1. Firebase Initialization
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyA1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "mock-salon.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "mock-salon",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "mock-salon.appspot.com",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "1234567890",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:1234567890:web:1234567890",
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-
-declare global { interface Window { recaptchaVerifier: any; confirmationResult: ConfirmationResult; } }
 
 export default function SignupPage() {
   const router = useRouter();
   
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 3>(1);
   const [phone, setPhone] = useState('');
-  const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isFallbackMode, setIsFallbackMode] = useState(false);
   
-  // Timer and Form fields for Step 3
-  const [resendCountdown, setResendCountdown] = useState(0);
+  // Form fields for Step 3 (Profile Setup)
   const [firstName, setFirstName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-
-  const isMockFirebaseConfig = () => {
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    const projId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    return !apiKey || apiKey === "AIzaSyA1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q" || projId === "mock-salon" || projId === "";
-  };
 
   // State Persistence: Load progress on mount
   useEffect(() => {
@@ -50,10 +24,9 @@ export default function SignupPage() {
         const savedStep = localStorage.getItem('styld_signup_step');
         const savedPhone = localStorage.getItem('styld_signup_phone');
         const savedFirstName = localStorage.getItem('styld_signup_firstName');
-        const savedFallbackMode = localStorage.getItem('styld_signup_fallbackMode');
         
-        if (savedStep === '1' || savedStep === '2') {
-          setStep(Number(savedStep) as 1 | 2);
+        if (savedStep === '1' || savedStep === '3') {
+          setStep(Number(savedStep) as 1 | 3);
           console.log(`[Signup State] Restored step ${savedStep} from localStorage.`);
         }
         if (savedPhone) {
@@ -63,10 +36,6 @@ export default function SignupPage() {
         if (savedFirstName) {
           setFirstName(savedFirstName);
           console.log(`[Signup State] Restored firstName ${savedFirstName} from localStorage.`);
-        }
-        if (savedFallbackMode === 'true') {
-          setIsFallbackMode(true);
-          console.log(`[Signup State] Restored fallbackMode true from localStorage.`);
         }
       } catch (err) {
         console.error('[Signup State] Failed to load saved progress:', err);
@@ -78,13 +47,12 @@ export default function SignupPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        if (step === 1 || step === 2) {
+        if (step === 1) {
           localStorage.setItem('styld_signup_step', String(step));
           localStorage.setItem('styld_signup_phone', phone);
           localStorage.setItem('styld_signup_firstName', firstName);
-          localStorage.setItem('styld_signup_fallbackMode', String(isFallbackMode));
         } else {
-          // Clear when fully verified and heading to step 3 (profile completion) or success
+          // Clear when heading to step 3 (profile completion) or success
           localStorage.removeItem('styld_signup_step');
           localStorage.removeItem('styld_signup_phone');
           localStorage.removeItem('styld_signup_firstName');
@@ -94,51 +62,7 @@ export default function SignupPage() {
         console.error('[Signup State] Failed to save progress:', err);
       }
     }
-  }, [step, phone, firstName, isFallbackMode]);
-
-  useEffect(() => {
-    // 2. Initialize Firebase's built-in Recaptcha without the manual Enterprise sitekey
-    try {
-      if (typeof window !== "undefined") {
-        const container = document.getElementById('recaptcha-container');
-        console.log("[Firebase Auth Debug] ReCaptcha container element in DOM:", !!container);
-        console.log("[Firebase Auth Debug] Firebase Config Summary:", {
-          projectId: firebaseConfig.projectId,
-          authDomain: firebaseConfig.authDomain,
-        });
-
-        if (container) {
-          console.log("[Firebase Auth] Initializing invisible ReCaptchaVerifier on container...");
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible',
-            'callback': (response: any) => {
-              console.log("[Firebase Auth] ReCaptcha verified successfully on mount. Token exists:", !!response);
-            },
-            'expired-callback': () => {
-              console.warn("[Firebase Auth] ReCaptcha expired callback invoked. Please request code again.");
-            },
-            'error-callback': (err: any) => {
-              console.error("[Firebase Auth] ReCaptcha error-callback invoked:", err);
-            }
-          });
-          console.log("[Firebase Auth Debug] ReCaptchaVerifier instance created:", !!window.recaptchaVerifier);
-        } else {
-          console.warn("[Firebase Auth Debug] ReCaptcha container element ('recaptcha-container') was not found in the DOM on mount.");
-        }
-      }
-    } catch (err) {
-      console.error("[Firebase Auth Debug] ReCaptchaVerifier initialization failed on mount:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (resendCountdown > 0) {
-      const timer = setTimeout(() => {
-        setResendCountdown(prev => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCountdown]);
+  }, [step, phone, firstName]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -163,27 +87,13 @@ export default function SignupPage() {
     setPhone('+' + digits);
   };
 
-  const [signUpLatestOTP, setSignUpLatestOTP] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const interval = setInterval(() => {
-        if ((window as any).__latestMockOTP) {
-          setSignUpLatestOTP((window as any).__latestMockOTP);
-        }
-      }, 500);
-      return () => clearInterval(interval);
-    }
-  }, []);
-
-  const handleRequestOTP = async (e: React.FormEvent) => {
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
-    setIsFallbackMode(false);
 
-    // 1. Explicit validation for phone length
+    // Explicit validation for phone length
     const digitsOnly = phone.replace(/\D/g, '');
     if (digitsOnly.length < 12) {
       console.warn(`[Validation Warning] Attempted to submit formatted number with less than 12 digits: ${phone} (digits: ${digitsOnly.length})`);
@@ -193,109 +103,13 @@ export default function SignupPage() {
     }
 
     // Completely bypass OTP and proceed to profile setup (step 3)
-    console.log("[Auth Signup] OTP verification bypassed. Moving directly to profile details setup.");
+    console.log("[Auth Signup] OTP verification bypassed entirely. Moving directly to profile details setup.");
     if (typeof window !== "undefined") {
       localStorage.setItem("styld_otp_verified_global", "true");
       localStorage.setItem(`styld_otp_verified_${digitsOnly}`, "true");
     }
     setStep(3);
     setLoading(false);
-  };
-
-  const handleResendOTP = async () => {
-    setLoading(true);
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      if (isMockFirebaseConfig() || isFallbackMode) {
-        console.log(`[Dev/Fallback Mode] Resending verification code...`);
-        const res = await fetch('/api/auth/client/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-          if (isMockFirebaseConfig()) {
-            setSignUpLatestOTP(data.code);
-            alert(`[Dev Mode] Simulated SMS resent. Enter code: ${data.code}`);
-          }
-          setSuccessMessage('A new verification code has been sent.');
-          setResendCountdown(60);
-        } else {
-          throw new Error(data.message || "Failed to resend code.");
-        }
-        return;
-      }
-
-      console.log(`[Firebase Auth] Resending SMS code for ${phone}...`);
-      try {
-        const confirmation = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-        window.confirmationResult = confirmation;
-        setSuccessMessage('A new OTP has been sent.');
-        setResendCountdown(60);
-      } catch (firebaseErr: any) {
-        console.error("[Firebase Auth] Resend failed. Falling back to alternative verification...", firebaseErr);
-        const res = await fetch('/api/auth/client/send-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-          setIsFallbackMode(true);
-          setSuccessMessage('A backup verification code has been sent.');
-          setResendCountdown(60);
-        } else {
-          throw new Error(data.message || "Failed to resend fallback OTP.");
-        }
-      }
-    } catch (err: any) {
-      console.error("[Auth Flow] Resend failed:", err);
-      setError('Error resending OTP: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      if (isMockFirebaseConfig() || isFallbackMode) {
-        console.log(`[Auth Flow] Verifying OTP ${otpCode} for ${phone} in fallback/dev mode...`);
-        const res = await fetch('/api/auth/client/verify-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, code: otpCode }),
-        });
-        const data = await res.json();
-        if (data.ok && data.verified) {
-          console.log("[Auth Flow] Fallback OTP verification succeeded.");
-          if (typeof window !== "undefined") {
-            localStorage.setItem("styld_otp_verified_global", "true");
-            localStorage.setItem(`styld_otp_verified_${phone.replace(/\D/g, "")}`, "true");
-          }
-          setStep(3);
-        } else {
-          throw new Error(data.message || "Invalid or expired verification code.");
-        }
-      } else {
-        await window.confirmationResult.confirm(otpCode);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("styld_otp_verified_global", "true");
-          localStorage.setItem(`styld_otp_verified_${phone.replace(/\D/g, "")}`, "true");
-        }
-        setStep(3);
-      }
-    } catch (err: any) {
-      console.error("[Auth Flow] Verification failed:", err);
-      setError(err.message || 'Invalid code.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handlePasswordSetup = async (e: React.FormEvent) => {
@@ -338,14 +152,11 @@ export default function SignupPage() {
 
   return (
     <div className="w-full max-w-md mx-auto p-6">
-      {/* 3. Container required by Firebase */}
-      <div id="recaptcha-container"></div>
-      
       {error && <p className="text-red-500 text-xs mb-4">{error}</p>}
       {successMessage && <p className="text-green-600 text-xs mb-4">{successMessage}</p>}
 
       {step === 1 ? (
-        <form onSubmit={handleRequestOTP} className="space-y-4">
+        <form onSubmit={handlePhoneSubmit} className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone Number</label>
             <input 
@@ -373,88 +184,12 @@ export default function SignupPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Sending...
+                Processing...
               </span>
             ) : (
-              'Request Code'
+              'Next: Create Profile'
             )}
           </button>
-        </form>
-      ) : step === 2 ? (
-        <form onSubmit={handleVerifyOTP} className="space-y-4">
-          {signUpLatestOTP && (
-            <div className="rounded border border-amber-200 bg-amber-50 p-3 text-center text-sm font-medium text-amber-800 shadow-sm">
-              <span className="inline-block px-1 rounded bg-amber-200 text-xs font-bold mr-1 uppercase">OTP</span>
-              Simulated code: <span className="font-mono text-base font-bold tracking-widest text-amber-900 select-all">{signUpLatestOTP}</span>
-            </div>
-          )}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">OTP Code</label>
-            <input 
-              type="text" 
-              value={otpCode} 
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} 
-              placeholder="000000" 
-              required 
-              className="w-full border p-2 text-black rounded focus:outline-none focus:ring-2 focus:ring-black tracking-widest text-center text-lg font-bold"
-            />
-          </div>
-          <button 
-            type="submit" 
-            disabled={loading || !/^\d{6}$/.test(otpCode)} 
-            className="w-full bg-black text-white py-2 rounded font-medium disabled:opacity-50 hover:bg-gray-800 transition-colors flex items-center justify-center"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Verifying...
-              </span>
-            ) : (
-              'Verify & Register'
-            )}
-          </button>
-          
-          <div className="flex justify-between items-center text-sm pt-2">
-            <button
-              type="button"
-              onClick={handleResendOTP}
-              disabled={loading || resendCountdown > 0}
-              className="text-blue-600 hover:underline disabled:opacity-50 disabled:no-underline disabled:text-gray-400"
-            >
-              {resendCountdown > 0 ? `Resend OTP in ${resendCountdown}s` : 'Resend OTP'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStep(1);
-                setOtpCode('');
-                setError(null);
-                setSuccessMessage(null);
-              }}
-              disabled={loading}
-              className="text-gray-600 hover:underline disabled:opacity-50"
-            >
-              Change number
-            </button>
-          </div>
-
-          <div className="border-t border-gray-100 pt-4 mt-4 text-center">
-            <p className="text-xs text-gray-500 mb-2">Didn't receive the SMS?</p>
-            <a 
-              href={`https://wa.me/254743817931?text=${encodeURIComponent(`Hi Styld Support, I am having trouble receiving the SMS verification code on my phone number ${phone}. Please help me complete my signup.`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
-            >
-              <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.963C16.588 1.981 14.117.954 11.487.954c-5.43 0-9.855 4.37-9.859 9.801-.002 1.97.518 3.89 1.51 5.582l-.99 3.613 3.734-.969c1.587.864 3.194 1.306 4.765 1.306z" />
-              </svg>
-              Having trouble? Chat with us on WhatsApp
-            </a>
-          </div>
         </form>
       ) : (
         <form onSubmit={handlePasswordSetup} className="space-y-4">
