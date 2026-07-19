@@ -1,0 +1,56 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(git *)",
+      "Bash(npx *)",
+      "Bash(npm *)",
+      "Bash(node *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(ls)",
+      "Bash(curl *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(sed *)",
+      "Bash(awk *)",
+      "Bash(find *)",
+      "Bash(echo *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(mkdir *)",
+      "Bash(touch *)",
+      "Bash(rm *)",
+      "Bash(sleep *)",
+      "Bash(type *)",
+      "Bash(tail *)",
+      "Bash(head *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(tsc *)",
+      "Bash(next *)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "mcp__*"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"C:/Users/Muti/Desktop/Salon and Beauty\" && if [ -n \"$(git status --porcelain)\" ]; then git add -A && git commit -m \"Auto-save: $(date '+%Y-%m-%d %H:%M')\" && git push origin main; elif [ -n \"$(git log origin/main..HEAD 2>/dev/null)\" ]; then git push origin main; fi",
+            "timeout": 30,
+            "statusMessage": "Pushing to GitHub..."
+          }
+        ]
+      }
+    ]
+  }
+}
