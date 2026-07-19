@@ -48,7 +48,7 @@ export async function GET(_req: NextRequest) {
       FROM sessions s
       JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ${tokenHash}
-        AND u.deletion_status = 'active'
+        AND (u.deletion_status IS NULL OR u.deletion_status = 'active')
       LIMIT 1
     `;
 

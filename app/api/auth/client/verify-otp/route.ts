@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { sql } from "@vercel/postgres";
 
 function isKenyanPhone(phone: unknown) {
-  return typeof phone === "string" && /^\+2547\d{8}$/.test(phone);
+  return typeof phone === "string" && /^\+254\d{9}$/.test(phone);
 }
 
 export async function POST(request: Request) {

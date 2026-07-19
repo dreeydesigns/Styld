@@ -157,31 +157,61 @@ export async function PATCH(req: NextRequest) {
       bookingId?: string;
       localId?: string;
       status?: string;
+      bookingDate?: string;
+      bookingTime?: string;
     } | null;
 
-    if (!body || (!body.bookingId && !body.localId) || !body.status) {
+    if (!body || (!body.bookingId && !body.localId)) {
       return NextResponse.json(
-        { ok: false, error: "bookingId or localId and status are required." },
+        { ok: false, error: "bookingId or localId is required." },
         { status: 400 }
       );
     }
 
-    const { status, bookingId, localId } = body;
+    const { status, bookingId, localId, bookingDate, bookingTime } = body;
 
     if (bookingId && bookingId.length === 36) { // standard uuid length
-      await sql`
-        UPDATE bookings
-        SET status = ${status}, updated_at = NOW()
-        WHERE id = ${bookingId} AND client_id = ${userId}
-      `;
-    } else {
-      const idToUse = localId || bookingId;
-      if (idToUse) {
+      if (status && bookingDate && bookingTime) {
+        await sql`
+          UPDATE bookings
+          SET status = ${status}, booking_date = ${bookingDate}, booking_time = ${bookingTime}, updated_at = NOW()
+          WHERE id = ${bookingId} AND client_id = ${userId}
+        `;
+      } else if (bookingDate && bookingTime) {
+        await sql`
+          UPDATE bookings
+          SET booking_date = ${bookingDate}, booking_time = ${bookingTime}, updated_at = NOW()
+          WHERE id = ${bookingId} AND client_id = ${userId}
+        `;
+      } else if (status) {
         await sql`
           UPDATE bookings
           SET status = ${status}, updated_at = NOW()
-          WHERE (local_id = ${idToUse} OR id::text = ${idToUse}) AND client_id = ${userId}
+          WHERE id = ${bookingId} AND client_id = ${userId}
         `;
+      }
+    } else {
+      const idToUse = localId || bookingId;
+      if (idToUse) {
+        if (status && bookingDate && bookingTime) {
+          await sql`
+            UPDATE bookings
+            SET status = ${status}, booking_date = ${bookingDate}, booking_time = ${bookingTime}, updated_at = NOW()
+            WHERE (local_id = ${idToUse} OR id::text = ${idToUse}) AND client_id = ${userId}
+          `;
+        } else if (bookingDate && bookingTime) {
+          await sql`
+            UPDATE bookings
+            SET booking_date = ${bookingDate}, booking_time = ${bookingTime}, updated_at = NOW()
+            WHERE (local_id = ${idToUse} OR id::text = ${idToUse}) AND client_id = ${userId}
+          `;
+        } else if (status) {
+          await sql`
+            UPDATE bookings
+            SET status = ${status}, updated_at = NOW()
+            WHERE (local_id = ${idToUse} OR id::text = ${idToUse}) AND client_id = ${userId}
+          `;
+        }
       }
     }
 

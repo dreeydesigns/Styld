@@ -291,6 +291,15 @@ export function updateBookingStatus(id: string, status: BookingStatus) {
   dispatch();
 }
 
+export function rescheduleBooking(id: string, date: string, time: string) {
+  const bookings = readBookings();
+  const updated = bookings.map((b) =>
+    b.id === id ? { ...b, preferredDate: date, preferredTime: time, updatedAt: new Date().toISOString() } : b,
+  );
+  localStorage.setItem(BOOKINGS_KEY, JSON.stringify(updated));
+  dispatch();
+}
+
 /** Get pending bookings for a specific pro or salon slug */
 /** Pending requests for a pro/salon — shown as the action queue */
 export function getIncomingBookings(targetSlug: string): BookingRequest[] {

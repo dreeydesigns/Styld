@@ -598,6 +598,45 @@ export function ClientRatingFlow() {
     }
   }, [stored]);
 
+  // Listen for manual rating triggers from components (e.g. Activity page)
+  useEffect(() => {
+    function handleManualRating(e: Event) {
+      const customEvent = e as CustomEvent<any>;
+      const booking = customEvent?.detail;
+      if (!booking) return;
+
+      const servicesMapped: BookingService[] = (booking.services || []).map((name: string, i: number) => ({
+        id: `srv-${i}`,
+        name,
+        price: 0,
+      }));
+
+      const manualSession: ActiveSession = {
+        bookingId: booking.id,
+        proName: booking.targetName,
+        clientName: booking.clientName || "User",
+        services: servicesMapped,
+        status: "completed",
+      };
+
+      setSession(manualSession);
+      setVisible(true);
+      setStep("services");
+      setServiceRatings(
+        servicesMapped.map((sv) => ({ serviceId: sv.id, serviceName: sv.name, stars: 0 })),
+      );
+      setGeneralStars(0);
+      setComment("");
+      setAgreedPhotos(false);
+      setSubmitted(false);
+    }
+
+    window.addEventListener("ms-rate-booking", handleManualRating);
+    return () => {
+      window.removeEventListener("ms-rate-booking", handleManualRating);
+    };
+  }, []);
+
   const handleClose = useCallback(() => {
     // Closed without rating → no photo request on pro side
     if (session) {

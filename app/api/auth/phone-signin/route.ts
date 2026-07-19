@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       SELECT id, first_name, role, phone
       FROM users
       WHERE phone = ${phone}
-        AND deletion_status = 'active'
+        AND (deletion_status IS NULL OR deletion_status = 'active')
       LIMIT 1
     `;
 

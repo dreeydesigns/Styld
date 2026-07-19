@@ -193,6 +193,10 @@ export async function POST(req: NextRequest) {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS firebase_uid TEXT UNIQUE
     `;
 
+    // ── Deletion status columns (idempotent) ──────────────────────────────
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_status VARCHAR(20) DEFAULT 'active'`.catch(() => null);
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMP`.catch(() => null);
+
     // ── Additional user profile columns ──────────────────────────────────
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS username      TEXT UNIQUE`.catch(() => null);
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS specialty     TEXT`.catch(() => null);
