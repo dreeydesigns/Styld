@@ -287,6 +287,7 @@ function PhoneStep({
 
     if (result.ok) {
       onSend(phone); // notify parent — navigate to OTP step
+      setSending(false);
     } else {
       setSendError(result.error ?? "Could not send code. Try again.");
       setSending(false);
@@ -553,9 +554,13 @@ export function SignInRolePicker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: fullPhone, role: role.key }),
       });
-      const data = await res.json() as { ok: boolean; user?: { id: string; firstName: string; role: string; phone: string }; error?: string };
+      const data = await res.json() as { ok: boolean; user?: { id: string; firstName: string; role: string; phone: string }; error?: string; details?: string };
       if (!data.ok || !data.user) {
-        setSignInError(data.error ?? "Sign-in failed. Please try again.");
+        const isDev = process.env.NODE_ENV !== "production";
+        const detailedMsg = isDev && data.details 
+          ? `Sign-in failed: ${data.error} (Details: ${data.details})` 
+          : (data.error ?? "Sign-in failed. Please try again.");
+        setSignInError(detailedMsg);
         setSigningIn(false);
         return;
       }
@@ -573,8 +578,9 @@ export function SignInRolePicker({
         writeAppSession(createSessionForRole(role.key as Exclude<AppUserRole, "guest">, fullPhone));
       }
       if (onSuccess) { onSuccess(dest); } else { router.push(dest); }
-    } catch {
-      setSignInError("Network error. Please check your connection.");
+    } catch (e: any) {
+      const isDev = process.env.NODE_ENV !== "production";
+      setSignInError(isDev ? `Network error: ${String(e)}` : "Network error. Please check your connection.");
       setSigningIn(false);
     }
   }
@@ -760,14 +766,19 @@ export function SignUpRolePicker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: fullPhone, role: role.key, firstName: name }),
       });
-      const data = await res.json() as { ok: boolean; error?: string };
+      const data = await res.json() as { ok: boolean; error?: string; details?: string };
       if (!data.ok) {
-        setSignUpError(data.error ?? "Could not create account. Try again.");
+        const isDev = process.env.NODE_ENV !== "production";
+        const detailedMsg = isDev && data.details 
+          ? `Could not create account: ${data.error} (Details: ${data.details})` 
+          : (data.error ?? "Could not create account. Try again.");
+        setSignUpError(detailedMsg);
         setSigningUp(false);
         return;
       }
-    } catch {
-      setSignUpError("Network error. Please try again.");
+    } catch (err: any) {
+      const isDev = process.env.NODE_ENV !== "production";
+      setSignUpError(isDev ? `Network error: ${String(err)}` : "Network error. Please try again.");
       setSigningUp(false);
       return;
     }
