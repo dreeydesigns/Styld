@@ -303,7 +303,7 @@ export function ClientSignupFlow() {
 
           {step === 2 ? (
             <ScreenShell>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--ms-mauve)]">Step 2 of 5 — Your details</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--ms-mauve)]">Step 2 of 4 — Your details</p>
               <h1 className="mt-3 font-display text-5xl leading-tight text-[var(--ms-plum)]">Tell us your first name.</h1>
               <p className="mt-4 text-sm leading-7 text-[var(--ms-mauve)]">Just three things. That&apos;s all we need right now.</p>
               <div className="mt-6 grid gap-4">
@@ -376,7 +376,7 @@ export function ClientSignupFlow() {
                 style={{ backgroundColor: themeConfig.accentColor }}
                 type="button"
               >
-                {submitting ? "Sending…" : "Send verification code"}
+                {submitting ? "Processing…" : "Continue"}
                 {!submitting && <ArrowRight className="h-4 w-4" />}
               </button>
               <p className="mt-4 rounded-[22px] bg-[var(--ms-soft-bg)] px-4 py-3 text-sm leading-6 text-[var(--ms-mauve)]">
@@ -385,41 +385,9 @@ export function ClientSignupFlow() {
             </ScreenShell>
           ) : null}
 
-          {step === 3 ? (
-            <ScreenShell>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--ms-mauve)]">Step 3 of 5 — Verify your number</p>
-              <h1 className="mt-3 font-display text-5xl leading-tight text-[var(--ms-plum)]">Check your messages.</h1>
-              <p className="mt-4 text-sm leading-7 text-[var(--ms-mauve)]">
-                We sent a 6-digit code to{" "}
-                <span className="font-semibold text-[var(--ms-navy)]">
-                  {fullPhone.replace(/(\+\d{3})(\d{3})(\d{3})(\d{3})/, "$1 $2 $3 $4")}
-                </span>. It expires in 5 minutes.
-              </p>
-
-              {/* Self-contained OTP entry — handles verification, errors, resend */}
-              <OTPInput
-                phone={fullPhone}
-                accentColor={themeConfig.accentColor}
-                onVerified={() => {
-                  writeSignupDraft({ otpVerified: true, phone: fullPhone, firstName, password, theme, tribeBadge: themeConfig.tribeBadge });
-                  setStep(4);
-                }}
-              />
-
-              <button
-                className="mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-[var(--ms-mauve)] hover:text-[var(--ms-navy)]"
-                onClick={() => setStep(2)}
-                type="button"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Change number
-              </button>
-            </ScreenShell>
-          ) : null}
-
           {step === 4 ? (
             <ScreenShell>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--ms-mauve)]">Step 4 of 5 — Where you are</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--ms-mauve)]">Step 3 of 4 — Where you are</p>
               <h1 className="mt-3 font-display text-5xl leading-tight text-[var(--ms-plum)]">Where should we look for you?</h1>
               <p className="mt-4 text-sm leading-7 text-[var(--ms-mauve)]">
                 This helps us show nearby salons and professionals first. You can skip and add it later.

@@ -284,16 +284,10 @@ function PhoneStep({
     setSendError("");
 
     try {
-      const result = await sendOTP(`+254${clean}`);
-      if (result.ok) {
-        setSending(false);
-        onSend(phone); // notify parent — navigate to OTP step
-      } else {
-        setSendError(result.error ?? "Could not send code. Try again.");
-        setSending(false);
-      }
+      onSend(phone); // notify parent — directly sign in / proceed
+      setSending(false);
     } catch (err: any) {
-      setSendError(err?.message || "Could not send code. Try again.");
+      setSendError(err?.message || "Could not proceed. Try again.");
       setSending(false);
     }
   }
@@ -324,10 +318,10 @@ function PhoneStep({
             <Phone className="h-6 w-6 text-white" />
           </span>
           <p className="text-xl font-semibold" style={{ color }}>
-            Verify your number
+            Enter your number
           </p>
           <p className="max-w-xs text-sm leading-6 text-[var(--ms-charcoal)]">
-            Enter your phone number. We&rsquo;ll send a one-time code to confirm it&rsquo;s you.
+            Enter your phone number below to sign in or create your account instantly.
           </p>
         </div>
 
@@ -370,13 +364,13 @@ function PhoneStep({
           className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[16px] text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           style={{ backgroundColor: color }}
         >
-          {sending ? "Sending…" : "Send verification code"}
+          {sending ? "Continuing…" : "Continue"}
           {!sending && <ArrowRight className="h-4 w-4" />}
         </button>
       </div>
 
       <p className="text-center text-xs text-[var(--ms-mauve)]">
-        Delivered via Firebase. No SMS charges.
+        Protected by secure end-to-end encryption.
       </p>
     </div>
   );
@@ -831,7 +825,7 @@ export function SignUpRolePicker({
         />
       ) : step === "name" ? (
         <form onSubmit={(e) => void handleNameSubmit(e)} className="space-y-4">
-          <button type="button" onClick={() => setStep("otp")} className="flex items-center gap-1.5 text-xs text-[var(--ms-mauve)] hover:text-[var(--ms-navy)]">
+          <button type="button" onClick={() => setStep("phone")} className="flex items-center gap-1.5 text-xs text-[var(--ms-mauve)] hover:text-[var(--ms-navy)]">
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </button>
           <div className="rounded-[24px] border p-5" style={{ backgroundColor: role.colorLight, borderColor: role.colorBorder }}>
